@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
 import 'credit_service.dart';
 import 'plant_shop_page.dart';
+import 'edit_profile_screen.dart';
+import 'app_preferences.dart';
+import 'comprehensive_database_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -68,8 +72,33 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     _animationController.forward();
     _staggerController.forward();
     
-    // Load user credits
+    // Load user credits and profile
     _loadUserCredits();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final savedProfile = await AppPreferences.getUserProfile();
+    if (savedProfile != null && mounted) {
+      setState(() {
+        _userProfile.addAll(savedProfile);
+      });
+    }
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null) {
+        final remoteProfile = await ComprehensiveDatabaseService().fetchUserProfile(userId);
+        if (remoteProfile != null && mounted) {
+          setState(() {
+            _userProfile['name'] = remoteProfile['full_name'] ?? _userProfile['name'];
+            _userProfile['address'] = remoteProfile['address'] ?? _userProfile['address'];
+            _userProfile['occupation'] = remoteProfile['occupation'] ?? _userProfile['occupation'];
+            _userProfile['phone'] = remoteProfile['phone_number'] ?? _userProfile['phone'];
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUserCredits() async {
@@ -725,21 +754,21 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-  void _showEditProfileDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Edit Profile'),
-        content: const Text('Profile editing feature will be available in the next update.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
+  Future<void> _showEditProfileDialog() async {
+    final updatedProfile = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(
+          initialProfile: _userProfile,
+        ),
       ),
     );
+
+    if (updatedProfile != null && mounted) {
+      setState(() {
+        _userProfile.addAll(updatedProfile);
+      });
+    }
   }
 
   void _showLogoutDialog() {

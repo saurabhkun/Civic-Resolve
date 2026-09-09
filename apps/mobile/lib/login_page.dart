@@ -4,6 +4,7 @@ import 'language_service.dart';
 import 'dashboard_screen.dart';
 import 'contractor_dashboard_screen.dart';
 import 'auth_service.dart';
+import 'app_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -89,22 +90,27 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     try {
       final hasValidSession = await _authService.loadSavedSession();
       if (hasValidSession && mounted) {
-        _navigateToDashboard();
+        final userRole = await AppPreferences.getUserRole() ?? (_authService.isAdmin ? 'contractor' : 'citizen');
+        _navigateToDashboard(selectedRole: userRole);
       }
     } catch (e) {
       // Handle error silently
     }
   }
 
-  void _navigateToDashboard({bool isAdmin = false}) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => isAdmin 
-          ? const ContractorDashboardScreen()
-          : DashboardScreen(isAdmin: isAdmin),
-      ),
-    );
+  void _navigateToDashboard({String? selectedRole, bool isAdmin = false}) {
+    final role = selectedRole ?? (_isCitizenSelected ? 'citizen' : 'contractor');
+    if (role == 'contractor' || isAdmin || _authService.userRole == 'contractor') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const ContractorDashboardScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardScreen(isAdmin: false)),
+      );
+    }
   }
 
   void _startOtpTimer() {
@@ -196,8 +202,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           );
           
           // Direct navigation to dashboard
+          await AppPreferences.setUserRole('citizen');
+          await _authService.login(cleanAadhaar, 'direct_auth', role: 'citizen');
           await Future.delayed(const Duration(milliseconds: 800));
-          _navigateToDashboard(isAdmin: isAdmin);
+          _navigateToDashboard(selectedRole: 'citizen', isAdmin: false);
           return;
         }
         
@@ -249,24 +257,23 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       });
 
       try {
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(const Duration(seconds: 1));
         
-        // Check if admin Aadhaar
-        bool isAdmin = _aadharController.text.replaceAll(' ', '') == '123456789012';
-        
-        final result = await _authService.login(_aadharController.text, _otpController.text);
+        // Explicitly set citizen role and authenticate
+        await AppPreferences.setUserRole('citizen');
+        final result = await _authService.login(_aadharController.text, _otpController.text, role: 'citizen');
         
         if (result.success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Login successful! Welcome ${isAdmin ? 'Admin' : 'Citizen'}'),
+            const SnackBar(
+              content: Text('Login successful! Welcome Citizen'),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           );
           
-          _navigateToDashboard(isAdmin: isAdmin);
+          _navigateToDashboard(selectedRole: 'citizen', isAdmin: false);
         }
       } catch (e) {
         setState(() {
@@ -293,9 +300,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     });
 
     try {
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1));
       
-      final result = await _authService.login(_publicServantIdController.text, _passwordController.text);
+      // Explicitly set contractor role and authenticate
+      await AppPreferences.setUserRole('contractor');
+      final result = await _authService.login(_publicServantIdController.text, _passwordController.text, role: 'contractor');
       
       if (result.success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -306,7 +315,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           ),
         );
         
-        _navigateToDashboard(isAdmin: true);
+        _navigateToDashboard(selectedRole: 'contractor', isAdmin: true);
       }
     } catch (e) {
       setState(() {

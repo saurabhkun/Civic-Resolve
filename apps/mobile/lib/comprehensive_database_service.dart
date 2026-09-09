@@ -754,4 +754,84 @@ class ComprehensiveDatabaseService {
       return [];
     }
   }
+
+  // ========================================
+  // USER PROFILE OPERATIONS
+  // ========================================
+
+  /// Fetch user profile from Supabase ('users' or 'user_profiles')
+  Future<Map<String, dynamic>?> fetchUserProfile(String userId) async {
+    try {
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+      if (response != null) return Map<String, dynamic>.from(response);
+    } catch (e) {
+      print('ℹ️ fetchUserProfile from users table: $e, trying user_profiles...');
+    }
+
+    try {
+      final response = await _supabase
+          .from('user_profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+      if (response != null) return Map<String, dynamic>.from(response);
+    } catch (e) {
+      print('⚠️ fetchUserProfile from user_profiles table: $e');
+    }
+
+    return null;
+  }
+
+  /// Update user profile in Supabase ('users' or 'user_profiles')
+  Future<bool> updateUserProfile({
+    required String userId,
+    required String fullName,
+    required String phoneNumber,
+    required String address,
+    String? email,
+    String? occupation,
+  }) async {
+    final updateData = {
+      'full_name': fullName.trim(),
+      'phone_number': phoneNumber.trim(),
+      'address': address.trim(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (email != null && email.isNotEmpty) updateData['email'] = email.trim();
+    if (occupation != null && occupation.isNotEmpty) updateData['occupation'] = occupation.trim();
+
+    bool updated = false;
+
+    try {
+      await _supabase
+          .from('users')
+          .update(updateData)
+          .eq('id', userId);
+      updated = true;
+      print('✅ Profile updated in users table for user $userId');
+    } catch (e) {
+      print('ℹ️ updateUserProfile in users table failed ($e), trying user_profiles...');
+    }
+
+    if (!updated) {
+      try {
+        await _supabase
+            .from('user_profiles')
+            .upsert({
+              'id': userId,
+              ...updateData,
+            });
+        updated = true;
+        print('✅ Profile updated in user_profiles table for user $userId');
+      } catch (e) {
+        print('⚠️ updateUserProfile in user_profiles table: $e');
+      }
+    }
+
+    return updated;
+  }
 }

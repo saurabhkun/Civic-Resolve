@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_preferences.dart';
 
 class AuthService {
   static AuthService? _instance;
@@ -6,39 +7,39 @@ class AuthService {
   
   AuthService._();
 
-  // Simple login state - no individual profiles
+  // Login state
   bool _isLoggedIn = false;
   bool _isAdmin = false;
+  String _userRole = 'citizen';
   String? _userEmail;
 
   bool get isLoggedIn => _isLoggedIn;
   bool get isAdmin => _isAdmin;
+  String get userRole => _userRole;
   String? get userEmail => _userEmail;
 
-  // Simple login - just admin or regular user
-  Future<AuthResult> login(String email, String password) async {
+  // Simple login with explicit role passing
+  Future<AuthResult> login(String emailOrId, String password, {String role = 'citizen'}) async {
     try {
-      // Simple hardcoded authentication - no database needed
-      if (email.toLowerCase() == 'admin' && password == 'admin') {
-        _isLoggedIn = true;
-        _isAdmin = true;
-        _userEmail = 'admin@system.com';
-        await _saveLoginState();
-        return AuthResult.success(
-          user: {'email': _userEmail, 'is_admin': true},
-          message: 'Admin login successful',
-        );
-      } else {
-        // Any other email/password combination works as regular user
-        _isLoggedIn = true;
-        _isAdmin = false;
-        _userEmail = email;
-        await _saveLoginState();
-        return AuthResult.success(
-          user: {'email': _userEmail, 'is_admin': false},
-          message: 'Login successful',
-        );
-      }
+      final normalizedRole = role.toLowerCase().trim() == 'contractor' ? 'contractor' : 'citizen';
+      final isContractor = normalizedRole == 'contractor' || (emailOrId.toLowerCase() == 'admin' && password == 'admin');
+
+      _isLoggedIn = true;
+      _isAdmin = isContractor;
+      _userRole = isContractor ? 'contractor' : 'citizen';
+      _userEmail = isContractor ? (emailOrId.contains('@') ? emailOrId : 'contractor@civicresolve.gov') : emailOrId;
+
+      await AppPreferences.setUserRole(_userRole);
+      await _saveLoginState();
+
+      return AuthResult.success(
+        user: {
+          'email': _userEmail,
+          'role': _userRole,
+          'is_admin': _isAdmin,
+        },
+        message: '$normalizedRole login successful',
+      );
     } catch (e) {
       return AuthResult.error('Login failed: ${e.toString()}');
     }
@@ -48,7 +49,9 @@ class AuthService {
   Future<void> logout() async {
     _isLoggedIn = false;
     _isAdmin = false;
+    _userRole = 'citizen';
     _userEmail = null;
+    await AppPreferences.clearUserRole();
     await _clearLoginState();
   }
 
@@ -58,6 +61,7 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       _isLoggedIn = prefs.getBool('is_logged_in') ?? false;
       _isAdmin = prefs.getBool('is_admin') ?? false;
+      _userRole = prefs.getString('user_role') ?? (_isAdmin ? 'contractor' : 'citizen');
       _userEmail = prefs.getString('user_email');
       return _isLoggedIn;
     } catch (e) {
@@ -71,6 +75,7 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_logged_in', _isLoggedIn);
       await prefs.setBool('is_admin', _isAdmin);
+      await prefs.setString('user_role', _userRole);
       if (_userEmail != null) {
         await prefs.setString('user_email', _userEmail!);
       }
@@ -85,6 +90,7 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('is_logged_in');
       await prefs.remove('is_admin');
+      await prefs.remove('user_role');
       await prefs.remove('user_email');
     } catch (e) {
       print('Error clearing login state: $e');
