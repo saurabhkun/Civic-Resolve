@@ -787,6 +787,10 @@ class CivicResolveDashboard {
     }
 
     displayRecentReports(reports) {
+        if (this.renderCommandCenter && reports) {
+            this.renderCommandCenter(reports);
+        }
+
         const container = document.getElementById('recent-reports-list');
         if (!container) return;
 
@@ -2153,11 +2157,11 @@ class CivicResolveDashboard {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: linear-gradient(135deg, #28a745, #20c997);
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
             padding: 1rem 1.5rem;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
             z-index: 10000;
             font-weight: 500;
             max-width: 400px;
@@ -2165,16 +2169,9 @@ class CivicResolveDashboard {
             animation: slideIn 0.3s ease-out;
         `;
         
-        // Add demo mode indicator if applicable
-        const isDemoMode = localStorage.getItem('civicresolve_demo_reports');
-        if (isDemoMode) {
-            message += ' <small>(💾 Persisted in Demo Mode)</small>';
-        }
-        
         notification.innerHTML = message;
         document.body.appendChild(notification);
         
-        // Auto-remove after 4 seconds
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.style.animation = 'slideOut 0.3s ease-in forwards';
@@ -2182,7 +2179,6 @@ class CivicResolveDashboard {
             }
         }, 4000);
         
-        // Add click to dismiss
         notification.onclick = () => {
             notification.style.animation = 'slideOut 0.3s ease-in forwards';
             setTimeout(() => notification.remove(), 300);
@@ -2190,9 +2186,303 @@ class CivicResolveDashboard {
         notification.style.cursor = 'pointer';
         notification.title = 'Click to dismiss';
     }
+
+    // =========================================================
+    // Command Center Split-View & Map Integration
+    // =========================================================
+
+    setupCommandCenter() {
+        const mapEl = document.getElementById('command-map');
+        if (mapEl && typeof L !== 'undefined' && !this.commandMap) {
+            try {
+                this.commandMap = L.map('command-map').setView([12.9716, 77.5946], 13);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap, CartoDB | CivicResolve'
+                }).addTo(this.commandMap);
+
+                this.commandMarkers = L.layerGroup().addTo(this.commandMap);
+                this.commandBuffers = L.layerGroup().addTo(this.commandMap);
+                console.log('🗺️ Command Center Map initialized with Dark Matter tiles');
+            } catch (e) {
+                console.warn('Map initialization error:', e);
+            }
+        }
+
+        // Tab events
+        this.activeFeedTab = 'triage';
+        const tabs = document.querySelectorAll('.feed-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this.activeFeedTab = tab.getAttribute('data-tab');
+                this.renderIncidentFeed();
+            });
+        });
+
+        // Search & Category Filter
+        document.getElementById('feed-search')?.addEventListener('input', () => this.renderIncidentFeed());
+        document.getElementById('feed-category')?.addEventListener('change', () => this.renderIncidentFeed());
+
+        // Close Before & After Modal
+        document.getElementById('close-before-after')?.addEventListener('click', () => {
+            const modal = document.getElementById('before-after-modal');
+            if (modal) modal.style.display = 'none';
+        });
+    }
+
+    renderCommandCenter(reports) {
+        if (!reports || reports.length === 0) return;
+        this.allReports = reports;
+
+        // Update Stats Counters
+        const total = reports.length;
+        const triageCount = reports.filter(r => (r.status || '').toLowerCase() === 'submitted' || (r.status || '').toLowerCase().includes('review')).length;
+        const progressCount = reports.filter(r => (r.status || '').toLowerCase().includes('progress') || (r.status || '').toLowerCase() === 'assigned').length;
+        const resolvedCount = reports.filter(r => (r.status || '').toLowerCase().includes('resolved') || (r.status || '').toLowerCase().includes('verified') || (r.status || '').toLowerCase().includes('closed')).length;
+        const urgentCount = reports.filter(r => (r.priority || '').toLowerCase().includes('critical') || (r.priority || '').toLowerCase().includes('high')).length;
+
+        document.getElementById('stat-total').textContent = total;
+        document.getElementById('stat-pending').textContent = triageCount;
+        document.getElementById('stat-progress').textContent = progressCount;
+        document.getElementById('stat-resolved').textContent = resolvedCount;
+        document.getElementById('stat-urgent').textContent = urgentCount;
+
+        // Tab counts
+        const badgeTriage = document.getElementById('badge-triage-count');
+        const badgeProgress = document.getElementById('badge-progress-count');
+        const badgeResolved = document.getElementById('badge-resolved-count');
+        if (badgeTriage) badgeTriage.textContent = triageCount;
+        if (badgeProgress) badgeProgress.textContent = progressCount;
+        if (badgeResolved) badgeResolved.textContent = resolvedCount;
+
+        // Plot on Command Map
+        if (this.commandMap && this.commandMarkers && this.commandBuffers) {
+            this.commandMarkers.clearLayers();
+            this.commandBuffers.clearLayers();
+
+            const validPoints = [];
+
+            reports.forEach(report => {
+                let lat = report.latitude;
+                let lng = report.longitude;
+                if ((!lat || !lng) && report.coordinates) {
+                    lat = report.coordinates.lat || report.coordinates.latitude;
+                    lng = report.coordinates.lng || report.coordinates.longitude;
+                }
+                if (!lat || !lng) return;
+                lat = parseFloat(lat);
+                lng = parseFloat(lng);
+                if (isNaN(lat) || isNaN(lng)) return;
+
+                validPoints.push([lat, lng]);
+
+                const prio = (report.priority || 'medium').toLowerCase();
+                const status = (report.status || '').toLowerCase();
+                let color = '#3B82F6';
+                let markerBg = '#3B82F6';
+
+                if (status.includes('resolved') || status.includes('verified') || status.includes('closed')) {
+                    color = '#10B981';
+                    markerBg = '#10B981';
+                } else if (prio.includes('critical') || prio.includes('high')) {
+                    color = '#F43F5E';
+                    markerBg = '#F43F5E';
+                } else if (prio.includes('medium')) {
+                    color = '#F59E0B';
+                    markerBg = '#F59E0B';
+                }
+
+                // 200m buffer circle
+                L.circle([lat, lng], {
+                    radius: 200,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.12,
+                    weight: 1.5,
+                    dashArray: '3, 4'
+                }).addTo(this.commandBuffers);
+
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<span style="background:${markerBg}; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:700; border:2px solid #ffffff; box-shadow:0 0 10px ${color}">#${report.id}</span>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+
+                L.marker([lat, lng], { icon })
+                    .bindPopup(`
+                        <div style="font-family:inherit; color:#0f172a; padding:4px;">
+                            <strong>#${report.id}: ${report.title}</strong>
+                            <div style="font-size:11px; margin:4px 0; color:#475569;">📍 ${report.location || 'Location provided'}</div>
+                            <button onclick="dashboard.showReportDetails(${report.id})" style="background:#3B82F6; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">View Action Sheet</button>
+                        </div>
+                    `)
+                    .addTo(this.commandMarkers);
+            });
+
+            if (validPoints.length > 0) {
+                this.commandMap.fitBounds(L.latLngBounds(validPoints), { padding: [40, 40], maxZoom: 14 });
+            }
+        }
+
+        this.renderIncidentFeed();
+    }
+
+    renderIncidentFeed() {
+        const feedContainer = document.getElementById('incident-feed-list');
+        if (!feedContainer || !this.allReports) return;
+
+        const tab = this.activeFeedTab || 'triage';
+        const searchQuery = (document.getElementById('feed-search')?.value || '').toLowerCase();
+        const categoryFilter = document.getElementById('feed-category')?.value || 'all';
+
+        let filtered = this.allReports.filter(r => {
+            const status = (r.status || '').toLowerCase();
+            const cat = (r.category || '').toLowerCase();
+            const title = (r.title || '').toLowerCase();
+            const loc = (r.location || '').toLowerCase();
+
+            // Tab filter
+            if (tab === 'triage' && !(status === 'submitted' || status.includes('review'))) return false;
+            if (tab === 'progress' && !(status.includes('progress') || status === 'assigned')) return false;
+            if (tab === 'resolved' && !(status.includes('resolved') || status.includes('verified') || status.includes('closed'))) return false;
+
+            // Search query
+            if (searchQuery && !title.includes(searchQuery) && !loc.includes(searchQuery) && !String(r.id).includes(searchQuery)) return false;
+
+            // Category filter
+            if (categoryFilter !== 'all' && !cat.includes(categoryFilter.toLowerCase())) return false;
+
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            feedContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px;">No incidents matching current filter.</div>`;
+            return;
+        }
+
+        let html = '';
+        filtered.slice(0, 50).forEach(report => {
+            const prio = (report.priority || 'medium').toLowerCase();
+            const status = (report.status || 'submitted').toLowerCase();
+            
+            let prioBadge = 'badge-medium';
+            if (prio.includes('critical')) prioBadge = 'badge-critical';
+            else if (prio.includes('high')) prioBadge = 'badge-high';
+            else if (prio.includes('low')) prioBadge = 'badge-low';
+
+            let statusBadge = 'badge-medium';
+            if (status.includes('resolved') || status.includes('verified') || status.includes('closed')) statusBadge = 'badge-resolved';
+            else if (status.includes('review') || status === 'submitted') statusBadge = 'badge-high';
+
+            const hasResolutionProof = report.resolution_image_url || status.includes('resolved') || status.includes('verified');
+
+            html += `
+                <div class="incident-card" onclick="dashboard.showReportDetails(${report.id})">
+                    <div class="incident-card-top">
+                        <span class="incident-id">#${report.id}</span>
+                        <div style="display:flex; gap:6px;">
+                            <span class="badge-pill ${prioBadge}">⚡ ${prio.toUpperCase()}</span>
+                            <span class="badge-pill ${statusBadge}">${status.replace('_', ' ').toUpperCase()}</span>
+                            ${report.potential_duplicate ? '<span class="badge-pill badge-duplicate">🔗 DUPLICATE</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="incident-title">${this.escapeHtml(report.title || 'Untitled Complaint')}</div>
+                    <div class="incident-meta">
+                        <span class="incident-location">📍 ${this.escapeHtml(report.location || 'Location specified')}</span>
+                        <span>${this.formatDate(report.created_at)}</span>
+                    </div>
+                    ${hasResolutionProof ? `
+                        <div style="margin-top:4px; display:flex; gap:6px;">
+                            <button type="button" class="btn-verify" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); dashboard.showBeforeAfterModal(${report.id});">
+                                📸 View Before & After
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        feedContainer.innerHTML = html;
+    }
+
+    showBeforeAfterModal(reportId) {
+        const report = this.allReports?.find(r => String(r.id) === String(reportId));
+        if (!report) return;
+
+        let beforeImg = 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600';
+        if (report.image_urls) {
+            try {
+                const parsed = typeof report.image_urls === 'string' ? JSON.parse(report.image_urls) : report.image_urls;
+                if (Array.isArray(parsed) && parsed.length > 0) beforeImg = parsed[0];
+            } catch (e) {}
+        }
+
+        const afterImg = report.resolution_image_url || 'https://images.unsplash.com/photo-1541888946425-d0fbb18fe07f?w=600';
+
+        const body = document.getElementById('before-after-body');
+        if (body) {
+            body.innerHTML = `
+                <div style="margin-bottom: 14px;">
+                    <h3 style="color:var(--text-head); font-size:16px;">#${report.id}: ${this.escapeHtml(report.title)}</h3>
+                    <p style="color:var(--text-muted); font-size:12px;">📍 ${this.escapeHtml(report.location || 'Site')} • Category: <strong>${this.escapeHtml(report.category)}</strong></p>
+                </div>
+
+                <div class="before-after-grid">
+                    <div class="comparison-pane">
+                        <span class="pane-label label-before">🔴 Original Complaint (Before)</span>
+                        <img src="${beforeImg}" class="comparison-img" alt="Before remediation" onerror="this.src='https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600'">
+                    </div>
+                    <div class="comparison-pane">
+                        <span class="pane-label label-after">🟢 Remediation Proof (After)</span>
+                        <img src="${afterImg}" class="comparison-img" alt="After remediation" onerror="this.src='https://images.unsplash.com/photo-1541888946425-d0fbb18fe07f?w=600'">
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-surface); padding:12px; border-radius:8px; border:1px solid var(--border-main); margin-top:14px;">
+                    <strong style="color:var(--text-head); font-size:13px;">Field Resolution Notes:</strong>
+                    <p style="font-size:12.5px; color:var(--text-body); margin-top:4px;">
+                        ${report.resolution_notes || 'Contractor verified asphalt resurfacing and site clearance completed in compliance with PWD SLA standard.'}
+                    </p>
+                </div>
+
+                <div class="verification-actions">
+                    <button class="btn-rework" onclick="dashboard.updateReportStatus(${report.id}); document.getElementById('before-after-modal').style.display='none';">
+                        ⚠️ Request Field Rework
+                    </button>
+                    <button class="btn-verify" onclick="dashboard.verifyAndClose(${report.id});">
+                        ✅ Approve & Verify Resolution
+                    </button>
+                </div>
+            `;
+        }
+
+        const modal = document.getElementById('before-after-modal');
+        if (modal) modal.style.display = 'block';
+    }
+
+    async verifyAndClose(reportId) {
+        try {
+            await window.supabaseService.updateReportStatus(reportId, 'verified');
+            this.showSuccess(`✅ Report #${reportId} verified successfully!`);
+            document.getElementById('before-after-modal').style.display = 'none';
+            await this.refreshDashboard();
+        } catch (e) {
+            this.showError('Failed to verify resolution: ' + e.message);
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 }
 
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.dashboard = new CivicResolveDashboard();
-});
+    window.dashboard.setupCommandCenter();
+});

@@ -10,7 +10,8 @@ import 'category_selection_screen.dart';
 import 'confirmation_screen.dart';
 import 'image_analysis_service.dart';
 import 'python_disaster_classifier.dart';
-
+import 'comprehensive_database_service.dart';
+import 'credit_service.dart';
 import 'leaflet_map_service.dart';
 
 class ReportDetailsScreen extends StatefulWidget {
@@ -22,7 +23,7 @@ class ReportDetailsScreen extends StatefulWidget {
   State<ReportDetailsScreen> createState() => _ReportDetailsScreenState();
 }
 
-class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
+class _ReportDetailsScreenState extends State<ReportDetailsScreen> with TickerProviderStateMixin {
   final LanguageService _languageService = LanguageService();
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
@@ -35,10 +36,18 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   bool isLoadingLocation = false;
   bool showMap = false;
   
-  // AI Priority Detection
+  // AI Priority Detection & Scanning Shimmer
   String selectedPriority = 'Medium';
   bool isAnalyzingImage = false;
   String? aiAnalysisResult;
+  late AnimationController _scannerController;
+
+  // Proximity Duplicate Detection
+  bool _hasDuplicate = false;
+  String? _duplicateParentId;
+  double? _duplicateDistance;
+  Map<String, dynamic>? _duplicateReport;
+  bool _duplicateDismissed = false;
   
   // WebView controller for Leaflet map (mobile/desktop)
   WebViewController? _webViewController;
@@ -51,21 +60,55 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     super.initState();
     _languageService.addListener(_onLanguageChanged);
     
+    _scannerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    
     // Add listener to description field for real-time AI analysis
     _descriptionController.addListener(_onDescriptionChanged);
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeMap();
+      _checkNearbyDuplicates();
     });
   }
 
   @override
   void dispose() {
+    _scannerController.dispose();
     _descriptionController.removeListener(_onDescriptionChanged);
     _descriptionController.dispose();
     _addressController.dispose();
     _languageService.removeListener(_onLanguageChanged);
     super.dispose();
+  }
+
+  /// Proximity-based duplicate pre-check within 200m radius
+  Future<void> _checkNearbyDuplicates() async {
+    final lat = currentLatitude ?? _defaultLatitude;
+    final lng = currentLongitude ?? _defaultLongitude;
+    if (_duplicateDismissed) return;
+
+    try {
+      final res = await ComprehensiveDatabaseService().findNearbyDuplicateReports(
+        latitude: lat,
+        longitude: lng,
+        category: widget.category.name,
+        radiusMeters: 200.0,
+      );
+
+      if (mounted) {
+        setState(() {
+          _hasDuplicate = res.hasDuplicate;
+          _duplicateParentId = res.parentReportId;
+          _duplicateDistance = res.distanceMeters;
+          _duplicateReport = res.parentReport;
+        });
+      }
+    } catch (e) {
+      // Ignore network errors in preview
+    }
   }
 
   /// Analyzes description text in real-time for priority keywords
@@ -359,20 +402,207 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     await _setLocationLoading(false);
   }
 
+  Widget _buildScanningShimmerOverlay() {
+    return AnimatedBuilder(
+      animation: _scannerController,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF3B82F6), width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              children: [
+                Container(
+                  color: Colors.blue.withValues(alpha: 0.12),
+                ),
+                Positioned(
+                  top: _scannerController.value * 120,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.transparent, Color(0xFF60A5FA), Colors.white, Color(0xFF60A5FA), Colors.transparent],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.8),
+                          blurRadius: 12,
+                          spreadRadius: 3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF60A5FA).withValues(alpha: 0.5)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome, color: Color(0xFF60A5FA), size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'Gemini AI Triage Scanning...',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDuplicateAlertBanner() {
+    if (!_hasDuplicate || _duplicateDismissed) return const SizedBox.shrink();
+
+    final distanceText = _duplicateDistance != null 
+        ? '${_duplicateDistance!.toStringAsFixed(0)}m away' 
+        : 'nearby (within 200m)';
+    final issueTitle = _duplicateReport?['title'] ?? 'Existing report #${_duplicateParentId ?? ""}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '⚠️ Nearby duplicate issue #$_duplicateParentId detected ($distanceText)',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Title: "$issueTitle". Upvoting helps municipal authorities prioritize this location faster without creating redundant work orders.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFFB45309),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      await CreditService.awardCreditsForReport('user_12345', _duplicateParentId ?? '1');
+                    } catch (_) {}
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.thumb_up, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text('Upvoted issue #$_duplicateParentId! +5 Green Credits awarded.'),
+                            ],
+                          ),
+                          backgroundColor: const Color(0xFF059669),
+                        ),
+                      );
+                      Navigator.pop(context);
+                    }
+                  },
+                  icon: const Icon(Icons.thumb_up_alt_rounded, size: 16),
+                  label: const Text('Upvote Existing Issue', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _duplicateDismissed = true;
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF92400E),
+                  side: const BorderSide(color: Color(0xFFD97706)),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Proceed Anyway', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildImageTile(int index) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -481,7 +711,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: isEnabled ? color.withValues(alpha: 0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isEnabled ? color.withValues(alpha: 0.3) : Colors.grey[300]!,
             width: 1.5,
@@ -1113,30 +1343,40 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // In-line Duplicate Alert Banner (200m Proximity Check)
+                    _buildDuplicateAlertBanner(),
+
                     // Selected Category Display
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: widget.category.color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: widget.category.color.withValues(alpha: 0.2),
+                          color: widget.category.color.withValues(alpha: 0.25),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: widget.category.color.withValues(alpha: 0.06),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
                           Container(
-                            width: 40,
-                            height: 40,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
                               color: widget.category.color.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               widget.category.icon,
                               color: widget.category.color,
-                              size: 20,
+                              size: 22,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1146,7 +1386,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                               Text(
                                 'Reporting in category:',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   color: Colors.grey[600],
                                 ),
                               ),
@@ -1164,49 +1404,70 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                       ),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     
                     // Description Field
                     const Text(
                       'Brief Description *',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF1F2937),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _descriptionController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: 'Describe the issue in detail. What exactly is the problem? When did you notice it? Any additional context that might help...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.all(16),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please provide a description of the issue';
-                        }
-                        if (value.trim().length < 10) {
-                          return 'Please provide a more detailed description (at least 10 characters)';
-                        }
-                        return null;
-                      },
+                      child: TextFormField(
+                        controller: _descriptionController,
+                        maxLines: 4,
+                        decoration: InputDecoration(
+                          hintText: 'Describe the issue in detail. What exactly is the problem? When did you notice it? Any additional context that might help...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.all(16),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please provide a description of the issue';
+                          }
+                          if (value.trim().length < 10) {
+                            return 'Please provide a more detailed description (at least 10 characters)';
+                          }
+                          return null;
+                        },
+                      ),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     
                     // Image Upload Section
                     const Text(
                       'Image/Video Proof * (Required)',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF1F2937),
                       ),
                     ),
@@ -1217,14 +1478,14 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey[200]!),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withValues(alpha: 0.1),
+                            color: Colors.black.withValues(alpha: 0.04),
                             spreadRadius: 1,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
@@ -1236,9 +1497,9 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                             // Header Row
                             Row(
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.photo_camera_rounded,
-                                  color: const Color(0xFF3B82F6),
+                                  color: Color(0xFF3B82F6),
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
@@ -1275,21 +1536,29 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                             
                             const SizedBox(height: 16),
                             
-                            // Image Grid
+                            // Image Grid with Scanning Overlay
                             if (selectedImages.isNotEmpty) ...[
-                              GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 8,
-                                  mainAxisSpacing: 8,
-                                  childAspectRatio: 1,
-                                ),
-                                itemCount: selectedImages.length,
-                                itemBuilder: (context, index) {
-                                  return _buildImageTile(index);
-                                },
+                              Stack(
+                                children: [
+                                  GridView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 3,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
+                                      childAspectRatio: 1,
+                                    ),
+                                    itemCount: selectedImages.length,
+                                    itemBuilder: (context, index) {
+                                      return _buildImageTile(index);
+                                    },
+                                  ),
+                                  if (isAnalyzingImage)
+                                    Positioned.fill(
+                                      child: _buildScanningShimmerOverlay(),
+                                    ),
+                                ],
                               ),
                               const SizedBox(height: 16),
                             ],
@@ -1329,7 +1598,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: Colors.blue[200]!),
                                 ),
                                 child: Row(
@@ -1354,14 +1623,14 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                       ),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     
                     // Priority Section with AI Integration
                     const Text(
                       'Priority Level',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF1F2937),
                       ),
                     ),
@@ -1371,14 +1640,14 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey[200]!),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withValues(alpha: 0.1),
+                            color: Colors.black.withValues(alpha: 0.04),
                             spreadRadius: 1,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
@@ -1417,7 +1686,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: ImageAnalysisService.getPriorityColor(selectedPriority).withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: ImageAnalysisService.getPriorityColor(selectedPriority).withValues(alpha: 0.3),
                                   ),
@@ -1544,19 +1813,19 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                       height: 250,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey[200]!),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withValues(alpha: 0.1),
+                            color: Colors.black.withValues(alpha: 0.04),
                             spreadRadius: 1,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         child: Stack(
                           children: [
                             // Map Interface
@@ -1569,12 +1838,12 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(alpha: 0.1),
                                       spreadRadius: 1,
-                                      blurRadius: 2,
+                                      blurRadius: 4,
                                     ),
                                   ],
                                 ),
@@ -1614,8 +1883,8 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.green[600]!.withValues(alpha: 0.9),
                                     borderRadius: const BorderRadius.only(
-                                      bottomLeft: Radius.circular(12),
-                                      bottomRight: Radius.circular(12),
+                                      bottomLeft: Radius.circular(16),
+                                      bottomRight: Radius.circular(16),
                                     ),
                                   ),
                                   child: Row(
@@ -1647,8 +1916,8 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                     const Text(
                       'Problem Address *',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF1F2937),
                       ),
                     ),
@@ -1658,8 +1927,15 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey[200]!),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: TextFormField(
                         controller: _addressController,

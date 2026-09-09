@@ -539,21 +539,31 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen>
                           ? category.color.withValues(alpha: 0.1)
                           : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         side: BorderSide(
                           color: isSelected 
                               ? category.color
-                              : colorScheme.outline.withValues(alpha: 0.2),
+                              : colorScheme.outline.withValues(alpha: 0.15),
                           width: isSelected ? 2 : 1,
                         ),
                       ),
                       child: InkWell(
                         onTap: () => _handleCategorySelection(category),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         splashColor: category.color.withValues(alpha: 0.1),
                         highlightColor: category.color.withValues(alpha: 0.05),
                         child: Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
