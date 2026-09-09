@@ -1,27 +1,80 @@
-# Environment & Secrets
+# =============================================================================
+# CivicResolve Enterprise Monorepo .gitignore
+# =============================================================================
+
+# --- Environment & Secrets ---
 .env
 .env.*
 !.env.example
 *.env
+*.pem
+*.key
+*.cert
 
-# Dart / Flutter build artifacts
+# --- Flutter / Dart Build & Cache ---
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+apps/mobile/.pub-cache/
+apps/mobile/.pub/
+apps/mobile/build/
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
+build/
+coverage/
 
-# IDE & OS
+# --- Android Build Artifacts ---
+apps/mobile/android/app/debug
+apps/mobile/android/app/profile
+apps/mobile/android/app/release
+apps/mobile/android/.gradle
+apps/mobile/android/local.properties
+**/android/**/build/
+*.keystore
+
+# --- iOS & macOS Build Artifacts ---
+apps/mobile/ios/Flutter/Flutter.framework
+apps/mobile/ios/Flutter/Flutter.podspec
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+apps/mobile/ios/Flutter/Generated.xcconfig
+apps/mobile/ios/Flutter/app.flx
+apps/mobile/ios/Flutter/app.zip
+apps/mobile/ios/Flutter/flutter_assets/
+*.xcworkspace
+*.xcuserdata
+*.xcuserdatad
+
+# --- Node / JavaScript / Web ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Python AI & Classifier ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+
+# --- IDEs & OS Metadata ---
 .idea/
 .vscode/
 *.iml
 *.ipr
 *.iws
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-
-# Android build
-**/android/app/debug
-**/android/app/profile
-**/android/app/release
