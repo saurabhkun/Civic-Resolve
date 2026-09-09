@@ -4,7 +4,7 @@ class AppConfig {
   static const String _defaultSupabaseUrl = 'https://ooryormddgyvgthggnzo.supabase.co';
   static const String _defaultSupabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vcnlvcm1kZGd5dmd0aGdnbnpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzNzQyNzIsImV4cCI6MjA3Mzk1MDI3Mn0.fkqBfcvgYy90HfJWPrqBnNSTCbIzlSN9c0QpE7eYavg';
-  static const String _defaultGeminiApiKey = 'AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8';
+  static const String _defaultGeminiApiKey = '';
 
   /// Initialize environment variables
   static Future<void> initialize() async {

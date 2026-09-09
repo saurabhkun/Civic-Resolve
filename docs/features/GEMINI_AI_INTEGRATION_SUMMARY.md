@@ -11,7 +11,7 @@ Your request: *"the ai is not analysing the image properly every time fix it"* a
 ### 1. **Complete AI System Replacement**
 - ❌ **REMOVED**: Google Cloud Vision API (unreliable image analysis)
 - ✅ **IMPLEMENTED**: Google Gemini 1.5 Flash with your API credentials
-- ✅ **CONFIGURED**: Project ID `739240347240` | API Key `AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8`
+- ✅ **CONFIGURED**: Project ID `739240347240` | API Key `YOUR_GEMINI_API_KEY`
 
 ### 2. **Enhanced Disaster Detection**
 ```dart
@@ -48,7 +48,7 @@ Your request: *"the ai is not analysing the image properly every time fix it"* a
 // In lib/image_analysis_service.dart
 final model = GenerativeModel(
   model: 'gemini-1.5-flash',
-  apiKey: 'AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8',
+  apiKey: 'YOUR_GEMINI_API_KEY',
   generationConfig: GenerationConfig(
     temperature: 0.2,  // Consistent results
     maxOutputTokens: 500,

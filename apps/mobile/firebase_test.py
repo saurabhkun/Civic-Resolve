@@ -4,6 +4,7 @@ Simple Firebase validation script to test our database structure.
 This helps us verify that our Dart Firebase integration fixes are working.
 """
 
+import os
 import json
 from datetime import datetime
 import requests
@@ -14,8 +15,8 @@ def test_firebase_config():
     print("🔧 Testing Firebase Configuration...")
     
     # Firebase project details from our config
-    project_id = "civicresolveapp"
-    api_key = "AIzaSyDq0QJvIAp0YOnUb20rEYepOXXBr8KCwDk"
+    project_id = os.getenv("FIREBASE_PROJECT_ID", "civicresolveapp")
+    api_key = os.getenv("FIREBASE_API_KEY", "")
     
     # Test Firebase REST API connectivity
     try:

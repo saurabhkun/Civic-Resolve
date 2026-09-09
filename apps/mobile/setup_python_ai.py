@@ -89,13 +89,13 @@ def setup_environment():
     
     if os.name == 'nt':  # Windows
         print("Windows PowerShell:")
-        print('$env:GOOGLE_API_KEY="AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8"')
+        print('$env:GOOGLE_API_KEY="<YOUR_GEMINI_API_KEY>"')
         print("")
         print("Windows Command Prompt:")
-        print('set GOOGLE_API_KEY=AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8')
+        print('set GOOGLE_API_KEY=<YOUR_GEMINI_API_KEY>')
     else:  # Unix-like
         print("Linux/MacOS Terminal:")
-        print('export GOOGLE_API_KEY="AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8"')
+        print('export GOOGLE_API_KEY="<YOUR_GEMINI_API_KEY>"')
     
     print("")
     print("💡 Note: The classifier will work without this, but it's more secure.")

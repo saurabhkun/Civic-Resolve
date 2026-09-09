@@ -9,7 +9,7 @@ Your Civic Resolve app now has **dual AI classification** for disaster image ana
 ## 🎯 What's Fixed & Enhanced
 
 ### ✅ Completed Features
-- **Gemini AI Integration**: 100% working with API key `AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8`
+- **Gemini AI Integration**: 100% working with API key `YOUR_GEMINI_API_KEY`
 - **Enhanced Disaster Detection**: Flood images now correctly show HIGH priority
 - **Dual Classification**: Python + Flutter AI for maximum accuracy
 - **Safety Overrides**: Multiple layers prevent incorrect LOW priority for disasters
@@ -33,13 +33,13 @@ pip install google-generativeai pillow
 ### 2. Set Environment Variable (Optional but Recommended)
 ```bash
 # Windows PowerShell
-$env:GOOGLE_API_KEY="AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8"
+$env:GOOGLE_API_KEY="YOUR_GEMINI_API_KEY"
 
 # Windows Command Prompt
-set GOOGLE_API_KEY=AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8
+set GOOGLE_API_KEY=YOUR_GEMINI_API_KEY
 
 # Linux/MacOS
-export GOOGLE_API_KEY="AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8"
+export GOOGLE_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
 ## 📱 How It Works
@@ -82,7 +82,7 @@ python integrated_disaster_classifier.py --test
 ### API Integration
 - **Primary**: Google Gemini Pro Vision (Python)
 - **Fallback**: Google Gemini 1.5 Flash (Flutter)
-- **API Key**: `AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8`
+- **API Key**: `YOUR_GEMINI_API_KEY`
 
 ### File Integration
 ```dart
@@ -166,7 +166,7 @@ flutter run -d chrome
 ```
 
 ### API Issues
-- Verify API key is correct: `AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8`
+- Verify API key is correct: `YOUR_GEMINI_API_KEY`
 - Check internet connection
 - Monitor console for error messages
 
