@@ -170,11 +170,17 @@ class CivicCopilot {
 
         try {
             const reports = await this.fetchActiveContext();
-            const config = window.CIVIC_CONFIG || {};
-            const apiKey = config.geminiApiKey;
+            let apiKey = config.geminiApiKey || localStorage.getItem('GEMINI_API_KEY');
 
             if (!apiKey) {
-                throw new Error('Gemini API key is not configured in CIVIC_CONFIG.');
+                const userKey = prompt('🔑 Enter your Google Gemini API Key for Civic Copilot:\n(This will be securely saved only to your local browser storage)');
+                if (userKey && userKey.trim()) {
+                    apiKey = userKey.trim();
+                    localStorage.setItem('GEMINI_API_KEY', apiKey);
+                    if (window.CIVIC_CONFIG) window.CIVIC_CONFIG.geminiApiKey = apiKey;
+                } else {
+                    throw new Error('Gemini API key is required to use the Municipal Copilot. Set it via localStorage or window.__ENV__.');
+                }
             }
 
             const prompt = `

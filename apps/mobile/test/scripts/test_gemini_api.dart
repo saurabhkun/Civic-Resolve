@@ -5,8 +5,12 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 void main() async {
   print('🧪 Testing Gemini AI API Connection...');
   
-  // API key from the application
-  const String apiKey = 'AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8';
+  // API key from environment
+  final String apiKey = Platform.environment['GEMINI_API_KEY'] ?? Platform.environment['GOOGLE_API_KEY'] ?? '';
+  if (apiKey.isEmpty) {
+    print('❌ GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required.');
+    return;
+  }
   
   try {
     // Initialize the model

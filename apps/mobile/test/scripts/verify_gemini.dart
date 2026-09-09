@@ -42,7 +42,7 @@ void testGeminiIntegration() {
     
     print('\n🔑 Your Gemini API Configuration:');
     print('   • Project ID: 739240347240');
-    print('   • API Key: AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8');
+    print('   • API Key: [CONFIGURED_VIA_ENV_OR_DOTENV]');
     print('   • Model: Gemini 1.5 Flash');
     print('   • Temperature: 0.2 (for consistent results)');
     

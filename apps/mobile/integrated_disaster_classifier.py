@@ -24,17 +24,12 @@ class DisasterImageClassifier:
         self.model = self._initialize_model()
     
     def _load_api_key(self):
-        """Load API key from environment variable or use provided key."""
-        # First try environment variable for security
-        api_key = os.getenv('GOOGLE_API_KEY')
-        
+        """Load API key from environment variable."""
+        api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
         if not api_key:
-            # Fallback to provided API key
-            api_key = "AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8"
-            print("⚠️ Using fallback API key. Set GOOGLE_API_KEY environment variable for better security.")
+            print("⚠️ GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set.")
         else:
             print("✅ Using API key from environment variable")
-        
         return api_key
     
     def _initialize_model(self):

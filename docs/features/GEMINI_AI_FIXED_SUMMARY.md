@@ -45,7 +45,7 @@ The Gemini AI integration has been **completely fixed** and is now working **100
 
 ### **4. API Integration**
 - **Model**: `gemini-1.5-flash`
-- **API Key**: `AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8` ✅ Validated
+- **API Key**: `YOUR_GEMINI_API_KEY` (Loaded via `.env` / `AppConfig`) ✅ Validated
 - **Safety Settings**: Disabled for disaster content analysis
 - **Temperature**: 0.1 for consistent results
 

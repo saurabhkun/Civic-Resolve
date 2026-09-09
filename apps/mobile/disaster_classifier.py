@@ -139,12 +139,14 @@ def main():
 
 def set_environment_variable():
     """
-    Helper function to set the environment variable with the provided API key.
-    Call this once to set up your environment.
+    Helper function to set the environment variable.
     """
-    api_key = "AIzaSyC2kPThYyYT3UmKF-6uPEF3qTeSbAmicG8"
-    os.environ['GOOGLE_API_KEY'] = api_key
-    print("✅ Environment variable GOOGLE_API_KEY has been set for this session")
+    api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+    if api_key:
+        os.environ['GOOGLE_API_KEY'] = api_key
+        print("✅ Environment variable GOOGLE_API_KEY is active")
+    else:
+        print("⚠️ Please set GOOGLE_API_KEY or GEMINI_API_KEY environment variable")
 
 
 if __name__ == "__main__":
