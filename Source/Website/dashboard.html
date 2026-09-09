@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicResolve - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/copilot.css">
+    <!-- Chart.js loaded after page content for speed -->
+    <script>
+        // Preload Chart.js asynchronously
+        const chartScript = document.createElement('script');
+        chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        chartScript.async = true;
+        document.head.appendChild(chartScript);
+        
+        // Preload Leaflet CSS
+        const leafletCSS = document.createElement('link');
+        leafletCSS.rel = 'stylesheet';
+        leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(leafletCSS);
+        
+        // Preload Leaflet JS
+        const leafletScript = document.createElement('script');
+        leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        leafletScript.async = true;
+        document.head.appendChild(leafletScript);
+    </script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <h1>🏛️ CivicResolve</h1>
+                    <span class="tagline">Admin Dashboard</span>
+                </div>
+                <div class="header-actions">
+                    <div class="notification-bell">
+                        <span class="bell-icon">🔔</span>
+                        <span class="notification-count" id="notification-count">0</span>
+                    </div>
+                    <div class="user-menu">
+                        <span id="welcome-message">Welcome, Admin!</span>
+                        <button id="logout-btn" class="logout-btn">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li><a href="dashboard.html" class="nav-link active">📊 Dashboard</a></li>
+                <li><a href="reports.html" class="nav-link">📋 Reports</a></li>
+                <li><a href="map.html" class="nav-link">🗺️ Map Hotspots</a></li>
+                <li><a href="analytics.html" class="nav-link">📈 Analytics</a></li>
+                <li><a href="users.html" class="nav-link">👥 Users</a></li>
+                <li><a href="categories.html" class="nav-link">🏷️ Categories</a></li>
+                <li><a href="settings.html" class="nav-link">⚙️ Settings</a></li>
+            </ul>
+        </nav>
+        
+        <main class="main-content">
+            <!-- Dashboard Overview Section -->
+            <div id="overview" class="content-section active">
+                <div class="section-header">
+                    <h2>Dashboard Overview</h2>
+                    <div class="refresh-controls">
+                        <button id="refresh-data" class="refresh-btn">🔄 Refresh</button>
+                        <span id="last-update" class="last-update">Last updated: Loading...</span>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card total">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <h3>Total Reports</h3>
+                            <p class="stat-number" id="stat-total">0</p>
+                            <span class="stat-change" id="stat-total-change">+0 this week</span>
+                        </div>
+                    </div>
+                    <div class="stat-card pending">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-content">
+                            <h3>Pending Review</h3>
+                            <p class="stat-number" id="stat-pending">0</p>
+                            <span class="stat-change" id="stat-pending-change">Needs attention</span>
+                        </div>
+                    </div>
+                    <div class="stat-card progress">
+                        <div class="stat-icon">🔄</div>
+                        <div class="stat-content">
+                            <h3>In Progress</h3>
+                            <p class="stat-number" id="stat-progress">0</p>
+                            <span class="stat-change" id="stat-progress-change">Active cases</span>
+                        </div>
+                    </div>
+                    <div class="stat-card resolved">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <h3>Resolved</h3>
+                            <p class="stat-number" id="stat-resolved">0</p>
+                            <span class="stat-change" id="stat-resolved-change">Completed</span>
+                        </div>
+                    </div>
+                    <div class="stat-card urgent">
+                        <div class="stat-icon">🚨</div>
+                        <div class="stat-content">
+                            <h3>Urgent</h3>
+                            <p class="stat-number" id="stat-urgent">0</p>
+                            <span class="stat-change" id="stat-urgent-change">High priority</span>
+                        </div>
+                    </div>
+                    <div class="stat-card today">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-content">
+                            <h3>Today</h3>
+                            <p class="stat-number" id="stat-today">0</p>
+                            <span class="stat-change" id="stat-today-change">New reports</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-row">
+                    <div class="chart-container">
+                        <h3>Reports Over Time</h3>
+                        <canvas id="reportsChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Category Breakdown</h3>
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="recent-reports">
+                    <h3>Recent Reports</h3>
+                    <div id="recent-reports-list" class="recent-list">
+                        <div class="loading">Loading recent reports...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Reports Management Section -->
+            <div id="reports" class="content-section">
+                <div class="section-header">
+                    <h2>Reports Management</h2>
+                    <div class="reports-actions">
+                        <button id="export-reports" class="action-btn">📥 Export</button>
+                        <button id="bulk-actions" class="action-btn">⚡ Bulk Actions</button>
+                    </div>
+                </div>
+
+                <div class="filters-section">
+                    <div class="filters-row">
+                        <input type="text" id="search-reports" placeholder="🔍 Search reports..." class="search-input">
+                        <select id="filter-status" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="submitted">Submitted</option>
+                            <option value="review">Review</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="progress">Progress</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                        <select id="filter-category" class="filter-select">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select id="filter-priority" class="filter-select">
+                            <option value="">All Priority</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                        <button id="clear-filters" class="clear-btn">Clear</button>
+                    </div>
+                </div>
+
+                <div class="reports-table-container">
+                    <div id="reports-loading" class="loading">Loading reports...</div>
+                    <table id="reports-table" class="reports-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="select-all"></th>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Location</th>
+                                <th>Reporter</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reports-tbody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <button id="prev-page" class="pagination-btn">← Previous</button>
+                    <span id="page-info" class="page-info">Page 1 of 1</span>
+                    <button id="next-page" class="pagination-btn">Next →</button>
+                </div>
+            </div>
+            
+            <!-- Analytics Section -->
+            <div id="analytics" class="content-section">
+                <h2>Analytics & Insights</h2>
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <h3>Performance Metrics</h3>
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                    <div class="analytics-card">
+                        <h3>Geographic Distribution</h3>
+                        <div id="reports-map" class="map-container"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Report Detail Modal -->
+    <div id="report-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Report Details</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div id="modal-body" class="modal-body">
+                <!-- Report details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/dashboard-civic.js"></script>
+    <script src="js/copilot.js"></script>
+</body>
+</html>
