@@ -461,56 +461,58 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     List<TextInputFormatter>? inputFormatters,
     Function(String)? onChanged,
   }) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      onChanged: onChanged,
+      validator: validator,
+      style: const TextStyle(
+        fontSize: 16,
+        color: Color(0xFF374151),
+        fontWeight: FontWeight.w500,
       ),
-      child: TextFormField(
-        controller: controller,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        onChanged: onChanged,
-        validator: validator,
-        style: const TextStyle(
-          fontSize: 16,
-          color: Color(0xFF374151),
-          fontWeight: FontWeight.w500,
+      decoration: InputDecoration(
+        hintText: placeholder,
+        hintStyle: const TextStyle(
+          color: Color(0xFF9CA3AF),
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
         ),
-        decoration: InputDecoration(
-          hintText: placeholder,
-          hintStyle: const TextStyle(
-            color: Color(0xFF9CA3AF),
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-          ),
-          prefixIcon: Icon(
-            prefixIcon,
-            color: const Color(0xFF6B7280),
-            size: 20,
-          ),
-          suffixIcon: isPassword
-              ? IconButton(
-                  icon: Icon(
-                    obscureText ? Icons.visibility_off : Icons.visibility,
-                    color: const Color(0xFF6B7280),
-                    size: 20,
-                  ),
-                  onPressed: toggleVisibility,
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        prefixIcon: Icon(
+          prefixIcon,
+          color: const Color(0xFF6B7280),
+          size: 20,
+        ),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  obscureText ? Icons.visibility_off : Icons.visibility,
+                  color: const Color(0xFF6B7280),
+                  size: 20,
+                ),
+                onPressed: toggleVisibility,
+              )
+            : null,
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
         ),
       ),
     );
@@ -523,7 +525,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 54,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
@@ -561,25 +563,42 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Citizen Login',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF374151),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Citizen Login',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  _aadharController.text = '1234 5678 9012';
+                  _otpController.text = '123456';
+                  setState(() {});
+                },
+                icon: const Icon(Icons.flash_on, size: 16, color: Color(0xFF3B82F6)),
+                label: const Text(
+                  'Demo Fill',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6)),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           
           if (!_isOtpSent) ...[
             _buildInputField(
               controller: _aadharController,
-              placeholder: 'Aadhaar Number',
+              placeholder: '12-digit Aadhaar Number',
               prefixIcon: Icons.credit_card,
               keyboardType: TextInputType.number,
               inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(12),
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                LengthLimitingTextInputFormatter(14),
               ],
               onChanged: (value) {
                 final formatted = _formatAadhar(value);
@@ -592,10 +611,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               },
               validator: _validateAadhar,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             
             _buildLoginButton(
-              text: 'Login',
+              text: 'Login with Aadhaar',
               onPressed: _handleCitizenLogin,
               isLoading: _isLoading,
             ),
@@ -633,12 +652,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             
             _buildInputField(
               controller: _otpController,
-              placeholder: '6-digit OTP',
-              prefixIcon: Icons.lock,
+              placeholder: '6-digit OTP (e.g. 123456)',
+              prefixIcon: Icons.lock_outline,
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -654,7 +673,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   _canResendOtp ? 'You can resend OTP now' : 'Resend OTP in ${_otpTimer}s',
                   style: const TextStyle(
                     color: Color(0xFF6B7280),
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
                 if (_canResendOtp)
@@ -675,14 +694,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             
             _buildLoginButton(
               text: 'Verify & Login',
               onPressed: _handleCitizenLogin,
               isLoading: _isLoading,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
             Center(
               child: TextButton(
@@ -713,22 +732,39 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Contractor Login',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF374151),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Contractor Login',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  _publicServantIdController.text = 'contractor_01';
+                  _passwordController.text = '123456';
+                  setState(() {});
+                },
+                icon: const Icon(Icons.flash_on, size: 16, color: Color(0xFF3B82F6)),
+                label: const Text(
+                  'Demo Fill',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6)),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           
           _buildInputField(
             controller: _publicServantIdController,
-            placeholder: 'Contractor ID',
-            prefixIcon: Icons.badge,
+            placeholder: 'Contractor ID / Email',
+            prefixIcon: Icons.badge_outlined,
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return 'Contractor ID is required';
               }
               return null;
@@ -739,7 +775,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           _buildInputField(
             controller: _passwordController,
             placeholder: 'Password',
-            prefixIcon: Icons.lock,
+            prefixIcon: Icons.lock_outline,
             isPassword: true,
             obscureText: !_isPasswordVisible,
             toggleVisibility: () {
@@ -748,16 +784,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               });
             },
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return 'Password is required';
               }
               return null;
             },
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           
           _buildLoginButton(
-            text: 'Log in',
+            text: 'Log in as Contractor',
             onPressed: _handlePublicServantLogin,
             isLoading: _isLoading,
           ),
