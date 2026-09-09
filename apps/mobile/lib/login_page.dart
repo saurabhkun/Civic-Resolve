@@ -265,8 +265,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         
         if (result.success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login successful! Welcome Citizen'),
+            SnackBar(
+              content: const Text('Login successful! Welcome Citizen'),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
