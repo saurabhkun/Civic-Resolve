@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'edit_profile_screen.dart';
+import 'app_preferences.dart';
 
 class ContractorProfilePage extends StatefulWidget {
   const ContractorProfilePage({super.key});
@@ -1150,10 +1152,23 @@ class _ContractorProfilePageState extends State<ContractorProfilePage> with Tick
   }
 
   // Action Methods
-  void _editProfile() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit profile functionality')),
+  Future<void> _editProfile() async {
+    final updated = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EditProfileScreen(
+          initialProfile: {
+            'name': 'Aarav Patel',
+            'occupation': 'Registered Public Works Contractor',
+            'phone': '+91 98765 43210',
+            'address': 'Plot 45, Industrial Area, Sector 18, Gurgaon',
+          },
+        ),
+      ),
     );
+    if (updated != null && mounted) {
+      setState(() {});
+    }
   }
 
   void _downloadComplianceReport() {
